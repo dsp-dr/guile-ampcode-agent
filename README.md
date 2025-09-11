@@ -6,18 +6,41 @@
 
 A Guile implementation of an AI agent following the [ampcode.com](https://ampcode.com/how-to-build-an-agent) pattern for tool-based interactions with multiple LLM backends.
 
-![Demo](demo-proper.gif)
+![Demo](demo/demo-improved.gif)
 
-This project demonstrates how to build a functional AI agent in Scheme that can interact with the Anthropic Claude API and execute tools based on natural language requests.
+This project demonstrates how to build a functional AI agent in Scheme that can interact with multiple LLM backends and execute tools based on natural language requests.
+
+## Quick Start
+
+Three backends available for immediate use:
+
+### 🎭 Mock Backend (No Setup Required)
+```bash
+./guile-agent-v2 -b mock
+```
+Perfect for testing and development - shows realistic tool invocations with structured output.
+
+### 🦙 Ollama Backend (Local LLM)
+```bash
+ollama pull tinyllama  # 637MB model
+./guile-agent-v2 -b ollama -m tinyllama
+```
+Run completely offline with local models.
+
+### 🤖 Anthropic Backend (Production)
+```bash
+export ANTHROPIC_API_KEY="your-key"
+./guile-agent-v2 -b anthropic
+```
+Full Claude integration with advanced reasoning.
 
 ## Features
 
-- Clean modular architecture using Guile's module system
-- Tool registration and execution framework
-- Conversation state management
-- Support for Claude's tool-calling capabilities
-- Example tools included (weather, calculator)
-- REPL-based interaction
+- **Multi-Backend Architecture**: Mock, Ollama, and Anthropic support
+- **Tool Registration System**: Extensible tool framework  
+- **Structured Tool Calls**: Shows actual function calls and results
+- **Clean Module Design**: Separate concerns for maintainability
+- **Student-Friendly**: Comprehensive guides and examples
 
 ## Architecture
 
