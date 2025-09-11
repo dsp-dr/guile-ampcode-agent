@@ -1,0 +1,24 @@
+# Guile compiled files
+*.go
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Backup files
+*~
+*.bak
+\#*\#
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test output
+test-output/
+test-results/
+
+# Build artifacts
+build/
+dist/

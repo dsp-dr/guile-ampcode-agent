@@ -1,0 +1,80 @@
+#!/usr/bin/env guile
+!#
+;;; guile-agent --- Main executable for Guile AmpCode Agent
+
+(add-to-load-path (dirname (current-filename)))
+(add-to-load-path (string-append (dirname (current-filename)) "/src"))
+
+(use-modules (agent)
+             (agent client)
+             (agent tools)
+             (tools weather)
+             (tools calculator)
+             (ice-9 getopt-long)
+             (ice-9 format))
+
+;; Command line options
+(define option-spec
+  '((help (single-char #\h) (value #f))
+    (api-key (single-char #\k) (value #t))
+    (model (single-char #\m) (value #t))
+    (version (single-char #\v) (value #f))))
+
+;; Get API key from environment or command line
+(define (get-api-key options)
+  (or (option-ref options 'api-key #f)
+      (getenv "ANTHROPIC_API_KEY")))
+
+;; Display help
+(define (display-help)
+  (display "Guile AmpCode Agent - A tool-calling AI agent powered by Claude\n\n")
+  (display "Usage: guile-agent [OPTIONS]\n\n")
+  (display "Options:\n")
+  (display "  -h, --help           Show this help message\n")
+  (display "  -k, --api-key KEY    Anthropic API key (or set ANTHROPIC_API_KEY)\n")
+  (display "  -m, --model MODEL    Claude model to use (default: claude-3-sonnet-20240229)\n")
+  (display "  -v, --version        Show version information\n"))
+
+;; Display version
+(define (display-version)
+  (display "Guile AmpCode Agent version 0.1.0\n")
+  (display "Built with Guile 3\n"))
+
+;; Main function
+(define (main args)
+  (let* ((options (getopt-long args option-spec))
+         (help-wanted (option-ref options 'help #f))
+         (version-wanted (option-ref options 'version #f)))
+    
+    (cond
+     (help-wanted
+      (display-help))
+     
+     (version-wanted
+      (display-version))
+     
+     (else
+      (let ((api-key (get-api-key options)))
+        (if (not api-key)
+            (begin
+              (display "Error: No API key provided.\n")
+              (display "Set ANTHROPIC_API_KEY environment variable or use -k option.\n")
+              (exit 1))
+            
+            (let* ((model (option-ref options 'model "claude-3-sonnet-20240229"))
+                   (client (make-client api-key model))
+                   (tools (make-tool-registry))
+                   (agent (make-agent client tools '())))
+              
+              ;; Register tools
+              (register-tool! tools weather-tool)
+              (register-tool! tools calculator-tool)
+              
+              (format #t "Initialized agent with model: ~a\n" model)
+              (format #t "Available tools: weather, calculator\n\n")
+              
+              ;; Run the agent
+              (run-agent agent))))))))
+
+;; Entry point
+(main (command-line))
