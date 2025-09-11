@@ -1,0 +1,256 @@
+#!/usr/bin/env guile
+!#
+;;; guile-agent-v2 --- Multi-backend Guile AmpCode Agent
+
+(add-to-load-path (dirname (current-filename)))
+(add-to-load-path (string-append (dirname (current-filename)) "/src"))
+
+(use-modules (agent)
+             (agent backend)
+             (agent tools)
+             (tools weather)
+             (tools calculator)
+             (ice-9 getopt-long)
+             (ice-9 format)
+             (ice-9 readline)
+             (srfi srfi-9))
+
+;; Command line options
+(define option-spec
+  '((help (single-char #\h) (value #f))
+    (backend (single-char #\b) (value #t))
+    (api-key (single-char #\k) (value #t))
+    (model (single-char #\m) (value #t))
+    (ollama-host (value #t))
+    (ollama-port (value #t))
+    (list-models (value #f))
+    (version (single-char #\v) (value #f))))
+
+;; Display help
+(define (display-help)
+  (display "Guile AmpCode Agent v2 - Multi-backend AI Agent\n\n")
+  (display "Usage: guile-agent-v2 [OPTIONS]\n\n")
+  (display "Options:\n")
+  (display "  -h, --help           Show this help message\n")
+  (display "  -b, --backend TYPE   Backend type: anthropic, ollama, mock (default: mock)\n")
+  (display "  -k, --api-key KEY    API key for Anthropic backend\n")
+  (display "  -m, --model MODEL    Model to use\n")
+  (display "                       Anthropic: claude-3-sonnet-20240229 (default)\n")
+  (display "                       Ollama: tinyllama, llama2, mistral, etc.\n")
+  (display "  --ollama-host HOST   Ollama server host (default: localhost)\n")
+  (display "  --ollama-port PORT   Ollama server port (default: 11434)\n")
+  (display "  --list-models        List available Ollama models\n")
+  (display "  -v, --version        Show version information\n\n")
+  (display "Backends:\n")
+  (display "  anthropic - Claude API (requires API key)\n")
+  (display "  ollama    - Local LLM via Ollama (requires Ollama server)\n")
+  (display "  mock      - Mock backend for testing (no setup required)\n\n")
+  (display "Examples:\n")
+  (display "  # Use mock backend (default)\n")
+  (display "  ./guile-agent-v2\n\n")
+  (display "  # Use Anthropic Claude\n")
+  (display "  ./guile-agent-v2 -b anthropic -k YOUR_API_KEY\n\n")
+  (display "  # Use Ollama with TinyLlama\n")
+  (display "  ./guile-agent-v2 -b ollama -m tinyllama\n\n")
+  (display "  # List Ollama models\n")
+  (display "  ./guile-agent-v2 -b ollama --list-models\n"))
+
+;; Display version
+(define (display-version)
+  (display "Guile AmpCode Agent version 2.0.0\n")
+  (display "Multi-backend support: Anthropic, Ollama, Mock\n")
+  (display "Built with Guile 3\n"))
+
+;; Create backend based on options
+(define (create-backend options)
+  (let ((backend-type (string->symbol 
+                       (option-ref options 'backend "mock"))))
+    (case backend-type
+      ((anthropic)
+       (let ((api-key (or (option-ref options 'api-key #f)
+                         (getenv "ANTHROPIC_API_KEY"))))
+         (if (not api-key)
+             (begin
+               (display "Error: Anthropic backend requires API key\n")
+               (display "Set ANTHROPIC_API_KEY or use -k option\n")
+               (exit 1))
+             (make-anthropic-backend 
+              api-key
+              (option-ref options 'model "claude-3-sonnet-20240229")))))
+      
+      ((ollama)
+       (make-ollama-backend 
+        #:host (option-ref options 'ollama-host "localhost")
+        #:port (string->number (option-ref options 'ollama-port "11434"))
+        #:model (option-ref options 'model "tinyllama")))
+      
+      ((mock)
+       (make-mock-backend))
+      
+      (else
+       (display (format #f "Error: Unknown backend '~a'\n" backend-type))
+       (display "Valid backends: anthropic, ollama, mock\n")
+       (exit 1)))))
+
+;; List Ollama models
+(define (list-ollama-models host port)
+  (let ((models ((@ (agent ollama-client) ollama-list-models) host port)))
+    (if (null? models)
+        (display "No models found or Ollama server not running\n")
+        (begin
+          (display "Available Ollama models:\n")
+          (for-each (lambda (model)
+                     (display (format #f "  - ~a\n" 
+                                     (assoc-ref model 'name))))
+                   models)))))
+
+;; Agent with backend
+(define-record-type <backend-agent>
+  (make-backend-agent backend tools conversation)
+  backend-agent?
+  (backend agent-backend)
+  (tools agent-tools)
+  (conversation agent-conversation set-agent-conversation!))
+
+;; Process message with backend
+(define (process-backend-message agent user-input)
+  (let* ((conversation (agent-conversation agent))
+         (user-msg ((@ (agent message) make-message) 
+                   "user" 
+                   ((@ (agent message) make-text-content) user-input)))
+         (new-conversation (append conversation (list user-msg))))
+    
+    (set-agent-conversation! agent new-conversation)
+    
+    (let* ((tools-schema ((@ (agent tools) tools->json-schema) 
+                         (agent-tools agent)))
+           (response (backend-send-message 
+                     (agent-backend agent)
+                     new-conversation 
+                     tools-schema)))
+      
+      (set-agent-conversation! agent 
+                               (append new-conversation (list response)))
+      
+      ;; Process tool calls if any
+      (process-tool-responses agent response)
+      
+      response)))
+
+;; Process tool responses
+(define (process-tool-responses agent message)
+  (let ((content ((@ (agent message) message-content) message)))
+    (when (list? content)
+      (for-each
+       (lambda (block)
+         (when ((@ (agent message) tool-use-content?) block)
+           (handle-backend-tool-use agent block)))
+       content))))
+
+;; Handle tool use with backend
+(define (handle-backend-tool-use agent tool-use)
+  (let* ((tool-id ((@ (agent message) tool-use-content-id) tool-use))
+         (tool-name ((@ (agent message) tool-use-content-name) tool-use))
+         (tool-input ((@ (agent message) tool-use-content-input) tool-use))
+         (result ((@ (agent tools) execute-tool) 
+                 (agent-tools agent) tool-name tool-input))
+         (tool-result-msg ((@ (agent message) make-message)
+                          "user"
+                          ((@ (agent message) make-tool-result-content) 
+                           tool-id result)))
+         (conversation (agent-conversation agent)))
+    
+    (set-agent-conversation! agent 
+                             (append conversation (list tool-result-msg)))
+    
+    (let* ((tools-schema ((@ (agent tools) tools->json-schema) 
+                         (agent-tools agent)))
+           (response (backend-send-message 
+                     (agent-backend agent)
+                     (agent-conversation agent)
+                     tools-schema)))
+      (set-agent-conversation! agent
+                               (append (agent-conversation agent) 
+                                      (list response)))
+      (process-tool-responses agent response))))
+
+;; Display message
+(define (display-backend-message message)
+  (let ((content ((@ (agent message) message-content) message)))
+    (cond
+     (((@ (agent message) text-content?) content)
+      (display ((@ (agent message) text-content-text) content))
+      (newline))
+     ((list? content)
+      (for-each
+       (lambda (block)
+         (when ((@ (agent message) text-content?) block)
+           (display ((@ (agent message) text-content-text) block))
+           (newline)))
+       content)))))
+
+;; Run backend agent
+(define (run-backend-agent agent backend-name)
+  (activate-readline)
+  (format #t "\n=== ~a Backend ===\n" 
+          (string-upcase (symbol->string backend-name)))
+  (display "Agent initialized. Type 'quit' to exit.\n")
+  (display "Available tools: weather, calculator\n")
+  (display "==========================================\n")
+  
+  (let loop ()
+    (display "\n> ")
+    (force-output)
+    (let ((input (readline)))
+      (cond
+       ((eof-object? input)
+        (display "\nGoodbye!\n"))
+       ((string=? input "quit")
+        (display "Goodbye!\n"))
+       ((string=? input "")
+        (loop))
+       (else
+        (catch #t
+          (lambda ()
+            (let ((response (process-backend-message agent input)))
+              (display "\nAssistant: ")
+              (display-backend-message response)
+              (loop)))
+          (lambda (key . args)
+            (format #t "\nError: ~a ~a\n" key args)
+            (loop))))))))
+
+;; Main function
+(define (main args)
+  (let* ((options (getopt-long args option-spec))
+         (help-wanted (option-ref options 'help #f))
+         (version-wanted (option-ref options 'version #f))
+         (list-models-wanted (option-ref options 'list-models #f))
+         (backend-name (string->symbol (option-ref options 'backend "mock"))))
+    
+    (cond
+     (help-wanted
+      (display-help))
+     
+     (version-wanted
+      (display-version))
+     
+     ((and list-models-wanted (eq? backend-name 'ollama))
+      (list-ollama-models 
+       (option-ref options 'ollama-host "localhost")
+       (string->number (option-ref options 'ollama-port "11434"))))
+     
+     (else
+      (let* ((backend (create-backend options))
+             (tools ((@ (agent tools) make-tool-registry)))
+             (agent (make-backend-agent backend tools '())))
+        
+        ;; Register tools
+        ((@ (agent tools) register-tool!) tools weather-tool)
+        ((@ (agent tools) register-tool!) tools calculator-tool)
+        
+        ;; Run the agent
+        (run-backend-agent agent (backend-type backend)))))))
+
+;; Entry point
+(main (command-line))

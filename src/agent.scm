@@ -2,6 +2,7 @@
 
 (define-module (agent)
   #:use-module (agent client)
+  #:use-module (agent mock-client)
   #:use-module (agent message)
   #:use-module (agent tools)
   #:use-module (ice-9 readline)
@@ -15,7 +16,9 @@
             agent-tools
             agent-conversation
             
+            make-mock-agent
             run-agent
+            run-mock-agent
             process-message))
 
 ;; Agent record
@@ -129,6 +132,63 @@
         (catch #t
           (lambda ()
             (let ((response (process-message agent input)))
+              (display "\nAssistant: ")
+              (display-message response)
+              (loop)))
+          (lambda (key . args)
+            (format #t "\nError: ~a ~a\n" key args)
+            (loop)))))))
+
+;; Mock agent creation
+(define (make-mock-agent client tools conversation)
+  (make-agent client tools conversation))
+
+;; Process message in mock mode
+(define (process-mock-message agent user-input)
+  (let* ((conversation (agent-conversation agent))
+         (user-msg (make-message "user" (make-text-content user-input)))
+         (new-conversation (append conversation (list user-msg))))
+    
+    ;; Update conversation
+    (set-agent-conversation! agent new-conversation)
+    
+    ;; Get mock response
+    (let* ((tools-schema (tools->json-schema (agent-tools agent)))
+           (response (mock-send-message (agent-client agent) 
+                                       new-conversation 
+                                       tools-schema)))
+      
+      ;; Add assistant response to conversation
+      (set-agent-conversation! agent 
+                               (append new-conversation (list response)))
+      
+      ;; Process any tool calls
+      (process-tool-calls agent response)
+      
+      ;; Return the response
+      response)))
+
+;; Run agent in mock mode
+(define (run-mock-agent agent)
+  (activate-readline)
+  (display "Mock Agent initialized. Type 'quit' to exit.\n")
+  (display "==========================================\n")
+  
+  (let loop ()
+    (display "\n> ")
+    (force-output)
+    (let ((input (readline)))
+      (cond
+       ((eof-object? input)
+        (display "\nGoodbye!\n"))
+       ((string=? input "quit")
+        (display "Goodbye!\n"))
+       ((string=? input "")
+        (loop))
+       (else
+        (catch #t
+          (lambda ()
+            (let ((response (process-mock-message agent input)))
               (display "\nAssistant: ")
               (display-message response)
               (loop)))

@@ -4,7 +4,7 @@
   #:use-module (web client)
   #:use-module (web uri)
   #:use-module (web response)
-  #:use-module (json)
+  #:use-module (json-simple)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 iconv)
   #:use-module (ice-9 match)

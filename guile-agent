@@ -7,6 +7,7 @@
 
 (use-modules (agent)
              (agent client)
+             (agent mock-client)
              (agent tools)
              (tools weather)
              (tools calculator)
@@ -18,6 +19,7 @@
   '((help (single-char #\h) (value #f))
     (api-key (single-char #\k) (value #t))
     (model (single-char #\m) (value #t))
+    (mock (value #f))
     (version (single-char #\v) (value #f))))
 
 ;; Get API key from environment or command line
@@ -33,6 +35,7 @@
   (display "  -h, --help           Show this help message\n")
   (display "  -k, --api-key KEY    Anthropic API key (or set ANTHROPIC_API_KEY)\n")
   (display "  -m, --model MODEL    Claude model to use (default: claude-3-sonnet-20240229)\n")
+  (display "  --mock               Run in mock mode (no API key required)\n")
   (display "  -v, --version        Show version information\n"))
 
 ;; Display version
@@ -44,7 +47,8 @@
 (define (main args)
   (let* ((options (getopt-long args option-spec))
          (help-wanted (option-ref options 'help #f))
-         (version-wanted (option-ref options 'version #f)))
+         (version-wanted (option-ref options 'version #f))
+         (mock-mode (option-ref options 'mock #f)))
     
     (cond
      (help-wanted
@@ -53,12 +57,31 @@
      (version-wanted
       (display-version))
      
+     (mock-mode
+      ;; Run in mock mode without API key
+      (let* ((model "mock-model")
+             (client (make-mock-client model))
+             (tools (make-tool-registry))
+             (agent (make-mock-agent client tools '())))
+        
+        ;; Register tools
+        (register-tool! tools weather-tool)
+        (register-tool! tools calculator-tool)
+        
+        (format #t "=== MOCK MODE ===\n")
+        (format #t "Running in mock mode for testing (no API key required)\n")
+        (format #t "Available tools: weather, calculator\n\n")
+        
+        ;; Run the agent in mock mode
+        (run-mock-agent agent)))
+     
      (else
       (let ((api-key (get-api-key options)))
         (if (not api-key)
             (begin
               (display "Error: No API key provided.\n")
               (display "Set ANTHROPIC_API_KEY environment variable or use -k option.\n")
+              (display "Or run with --mock for testing without an API key.\n")
               (exit 1))
             
             (let* ((model (option-ref options 'model "claude-3-sonnet-20240229"))

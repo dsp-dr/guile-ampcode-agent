@@ -4,7 +4,7 @@
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ice-9 match)
-  #:use-module (json)
+  #:use-module (json-simple)
   #:export (make-message
             message?
             message-role
