@@ -1,0 +1,30 @@
+#+TITLE: Guile AmpCode Agent
+#+PROPERTY: header-args :mkdirp t
+
+* Project Setup
+
+** Claude Code Prompt
+:PROPERTIES:
+:header-args: :tangle prompt.txt
+:END:
+
+#+begin_src text
+Build an agent following https://ampcode.com/how-to-build-an-agent using Guile 3 instead of Go.
+#+end_src
+
+** Directory Structure
+:PROPERTIES:
+:header-args: :tangle directory-structure.mermaid
+:END:
+
+#+begin_src mermaid
+graph TD
+    A[guile-ampcode-agent/] --> B[src/]
+    A --> C[tests/]
+    A --> D[setup.org]
+    A --> E[README.org]
+    B --> F[agent.scm]
+    B --> G[tools/]
+    G --> H[weather.scm]
+    G --> I[calculator.scm]
+#+end_src
