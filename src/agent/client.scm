@@ -7,6 +7,8 @@
   #:use-module (json)
   #:use-module (ice-9 receive)
   #:use-module (ice-9 iconv)
+  #:use-module (ice-9 match)
+  #:use-module (srfi srfi-9)
   #:use-module (rnrs bytevectors)
   #:use-module (agent message)
   #:export (make-client
