@@ -1,6 +1,7 @@
 ;;; ollama-client.scm --- Ollama API client for local LLMs
 
 (define-module (agent ollama-client)
+  #:use-module (srfi srfi-1)
   #:use-module (web client)
   #:use-module (web uri)
   #:use-module (web response)

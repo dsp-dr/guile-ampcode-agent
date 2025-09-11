@@ -34,10 +34,10 @@
     (make-backend 'anthropic anthropic-send config)))
 
 ;; Create Ollama backend
-(define (make-ollama-backend #:key 
-                            (host "localhost")
-                            (port 11434)
-                            (model "tinyllama"))
+(define* (make-ollama-backend #:key 
+                             (host "localhost")
+                             (port 11434)
+                             (model "tinyllama"))
   (let ((config `((host . ,host)
                   (port . ,port)
                   (model . ,model))))

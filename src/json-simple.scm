@@ -2,13 +2,7 @@
 
 (define-module (json-simple)
   #:export (scm->json-string
-            json-string->scm
-            json))
-
-;; For compatibility - re-export under (json) name
-(define-module (json)
-  #:re-export (scm->json-string
-               json-string->scm))
+            json-string->scm))
 
 ;; Simple JSON serialization
 (define (scm->json-string obj)

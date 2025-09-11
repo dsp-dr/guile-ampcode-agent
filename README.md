@@ -1,8 +1,12 @@
 # Guile AmpCode Agent
 
-A Guile 3 implementation of an AI agent following the [ampcode.com](https://ampcode.com/how-to-build-an-agent) pattern for tool-based interactions with Claude.
+[![Guile](https://img.shields.io/badge/Guile-2.2%2B-blue.svg)](https://www.gnu.org/software/guile/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Scheme](https://img.shields.io/badge/Scheme-R7RS-green.svg)](https://small.r7rs.org/)
 
-![Demo](demo.gif)
+A Guile implementation of an AI agent following the [ampcode.com](https://ampcode.com/how-to-build-an-agent) pattern for tool-based interactions with multiple LLM backends.
+
+![Demo](demo-working.gif)
 
 This project demonstrates how to build a functional AI agent in Scheme that can interact with the Anthropic Claude API and execute tools based on natural language requests.
 
