@@ -1,0 +1,2 @@
+{"version": 2, "width": 80, "height": 24, "timestamp": 1757594490, "env": {"SHELL": "/usr/local/bin/bash", "TERM": "xterm-256color"}, "title": "Guile AmpCode Agent - Mock Backend Demo"}
+[0.002918, "o", "sh: ./demo-script.exp: not found\r\n"]

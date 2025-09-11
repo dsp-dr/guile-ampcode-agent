@@ -2,6 +2,8 @@
 
 A Guile 3 implementation of an AI agent following the [ampcode.com](https://ampcode.com/how-to-build-an-agent) pattern for tool-based interactions with Claude.
 
+![Demo](demo.gif)
+
 This project demonstrates how to build a functional AI agent in Scheme that can interact with the Anthropic Claude API and execute tools based on natural language requests.
 
 ## Features

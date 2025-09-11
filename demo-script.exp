@@ -1,0 +1,30 @@
+#!/usr/bin/expect -f
+# Expect script for demo recording
+
+set timeout 3
+spawn ./guile-agent-v2 -b mock
+
+expect "=== MOCK Backend ==="
+sleep 1
+
+expect "> "
+send "Hello! Can you help me with the weather?\r"
+sleep 2
+
+expect "> "
+send "What's 42 + 17?\r"
+sleep 2
+
+expect "> "
+send "Calculate the sum of 100 and 250 for me\r"
+sleep 2
+
+expect "> "
+send "What's the weather in Boston?\r"
+sleep 2
+
+expect "> "
+send "quit\r"
+expect "Goodbye!"
+
+exit 0

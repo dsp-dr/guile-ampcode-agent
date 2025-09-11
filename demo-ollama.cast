@@ -1,0 +1,2 @@
+{"version": 2, "width": 80, "height": 24, "timestamp": 1757594544, "env": {"SHELL": "/usr/local/bin/bash", "TERM": "xterm-256color"}, "title": "Guile AmpCode Agent - Ollama Backend with llama3.2"}
+[0.002682, "o", "sh: ./demo-ollama.exp: not found\r\n"]

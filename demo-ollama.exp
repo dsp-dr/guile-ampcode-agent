@@ -1,0 +1,22 @@
+#!/usr/bin/expect -f
+# Expect script for Ollama demo recording
+
+set timeout 10
+spawn ./guile-agent-v2 -b ollama -m llama3.2:3b
+
+expect "=== OLLAMA Backend ==="
+sleep 1
+
+expect "> "
+send "What's the weather like today?\r"
+sleep 3
+
+expect "> "
+send "Calculate 15 times 7 for me\r"
+sleep 3
+
+expect "> "
+send "quit\r"
+expect "Goodbye!"
+
+exit 0
