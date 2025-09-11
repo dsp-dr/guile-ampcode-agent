@@ -104,11 +104,12 @@
           (if properties
               (map (lambda (prop)
                      (cons (car prop) 
-                           (case (assoc-ref (cdr prop) 'type)
-                             (("string") "mock-value")
-                             (("number") 42)
-                             (("boolean") #t)
-                             (else "unknown"))))
+                           (let ((type (assoc-ref (cdr prop) 'type)))
+                             (cond
+                              ((equal? type "string") "mock-value")
+                              ((equal? type "number") 42)
+                              ((equal? type "boolean") #t)
+                              (else "unknown")))))
                    properties)
               '()))
         '())))

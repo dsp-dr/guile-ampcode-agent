@@ -1,0 +1,39 @@
+#!/usr/bin/expect -f
+# Comprehensive demo of Guile AmpCode Agent
+
+set timeout 5
+
+# Start the simple demo script
+spawn env GUILE_AUTO_COMPILE=0 ./demo-simple.scm
+
+# Wait for the prompt
+expect "=== MOCK Backend ==="
+expect "Available tools: weather, calculator"
+expect "> "
+
+# Demonstrate various queries
+send "Hello! Can you help me?\r"
+expect "Assistant:"
+expect "> "
+sleep 1
+
+send "What's the weather in San Francisco?\r"
+expect "Assistant:"
+expect "> "
+sleep 1
+
+send "Calculate 42 + 17 for me\r"
+expect "Assistant:"
+expect "> "
+sleep 1
+
+send "Can you help with both weather and math?\r"
+expect "Assistant:"
+expect "> "
+sleep 1
+
+send "quit\r"
+expect "Goodbye!"
+
+puts "\n\nDemo completed successfully!"
+exit 0

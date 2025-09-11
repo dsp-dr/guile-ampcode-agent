@@ -1,0 +1,316 @@
+#+TITLE: Live Coding Demo: Guile AmpCode Agent
+#+AUTHOR: dsp-dr
+#+DATE: 2025
+#+PROPERTY: header-args:scheme :session *guile* :results output
+
+* Introduction
+
+This is a live coding demonstration of building an AI agent in Guile Scheme.
+We'll explore the architecture and create custom tools interactively.
+
+* Setup
+
+First, let's set up our environment:
+
+#+begin_src scheme
+;; Add our source directory to the load path
+(add-to-load-path "src")
+
+;; Load required modules
+(use-modules (ice-9 readline)
+             (ice-9 format)
+             (srfi srfi-9)
+             (agent message)
+             (agent tools))
+#+end_src
+
+* Understanding Messages
+
+Messages are the core communication unit:
+
+#+begin_src scheme
+;; Create a simple text message
+(define user-msg 
+  (make-message "user" 
+                (make-text-content "Hello, agent!")))
+
+;; Display the message
+(format #t "Role: ~a\n" (message-role user-msg))
+(format #t "Content: ~a\n" 
+        (text-content-text (message-content user-msg)))
+#+end_src
+
+* Building Tools
+
+Let's create a custom tool from scratch:
+
+#+begin_src scheme
+;; Define a time tool
+(define time-tool
+  (make-tool
+   "get_time"
+   "Get the current time"
+   '((type . "object")
+     (properties . ())
+     (required . #()))
+   (lambda (input)
+     (strftime "%Y-%m-%d %H:%M:%S" (localtime (current-time))))))
+
+;; Test the tool
+(format #t "Current time: ~a\n" 
+        ((tool-function time-tool) '()))
+#+end_src
+
+* Tool Registry
+
+Tools are managed through a registry:
+
+#+begin_src scheme
+;; Create a registry
+(define registry (make-tool-registry))
+
+;; Register our time tool
+(register-tool! registry time-tool)
+
+;; List registered tools
+(for-each (lambda (tool)
+           (format #t "Tool: ~a - ~a\n" 
+                   (tool-name tool)
+                   (tool-description tool)))
+         (list-tools registry))
+#+end_src
+
+* Creating a Math Tool
+
+Let's build a more complex calculator:
+
+#+begin_src scheme
+(define math-tool
+  (make-tool
+   "advanced_math"
+   "Perform advanced mathematical operations"
+   '((type . "object")
+     (properties . ((operation . ((type . "string")
+                                  (enum . #("sqrt" "pow" "log" "sin" "cos"))))
+                   (x . ((type . "number")))
+                   (y . ((type . "number")
+                        (description . "Second operand for pow")))))
+     (required . #("operation" "x")))
+   (lambda (input)
+     (let ((op (assoc-ref input 'operation))
+           (x (assoc-ref input 'x))
+           (y (assoc-ref input 'y)))
+       (cond
+        ((string=? op "sqrt") 
+         (format #f "√~a = ~a" x (sqrt x)))
+        ((string=? op "pow") 
+         (format #f "~a^~a = ~a" x y (expt x y)))
+        ((string=? op "log") 
+         (format #f "log(~a) = ~a" x (log x)))
+        ((string=? op "sin") 
+         (format #f "sin(~a) = ~a" x (sin x)))
+        ((string=? op "cos") 
+         (format #f "cos(~a) = ~a" x (cos x)))
+        (else "Unknown operation"))))))
+
+;; Register and test
+(register-tool! registry math-tool)
+(format #t "~a\n" (execute-tool registry "advanced_math" 
+                                '((operation . "sqrt") (x . 16))))
+(format #t "~a\n" (execute-tool registry "advanced_math" 
+                                '((operation . "pow") (x . 2) (y . 10))))
+#+end_src
+
+* Mock Backend Exploration
+
+Let's explore how the mock backend works:
+
+#+begin_src scheme
+(use-modules (agent backend))
+
+;; Create a mock backend
+(define mock (make-mock-backend))
+
+;; Test message handling
+(define messages 
+  (list (make-message "user" 
+                     (make-text-content "Test message"))))
+
+;; Send multiple times to see randomization
+(do ((i 0 (+ i 1)))
+    ((= i 5))
+  (let ((response (backend-send-message mock messages '())))
+    (format #t "Response ~a: ~a\n" 
+            (+ i 1)
+            (if (list? (message-content response))
+                "Tool call"
+                "Conversation"))))
+#+end_src
+
+* Building a Complete Agent
+
+Now let's put it all together:
+
+#+begin_src scheme
+;; Create a simple interactive agent
+(define (run-simple-agent)
+  (let ((registry (make-tool-registry))
+        (conversation '()))
+    
+    ;; Register tools
+    (register-tool! registry time-tool)
+    (register-tool! registry math-tool)
+    
+    (format #t "Simple Agent Ready!\n")
+    (format #t "Available tools: time, math\n")
+    (format #t "Type 'quit' to exit\n\n")
+    
+    (let loop ()
+      (display "> ")
+      (force-output)
+      (let ((input (read-line)))
+        (cond
+         ((eof-object? input) 
+          (format #t "\nGoodbye!\n"))
+         ((string=? input "quit")
+          (format #t "Goodbye!\n"))
+         ((string-contains input "time")
+          (format #t "Agent: ~a\n" 
+                  (execute-tool registry "get_time" '()))
+          (loop))
+         ((string-contains input "sqrt")
+          (format #t "Agent: ~a\n"
+                  (execute-tool registry "advanced_math"
+                               '((operation . "sqrt") (x . 25))))
+          (loop))
+         (else
+          (format #t "Agent: I can help with time and math operations.\n")
+          (loop)))))))
+
+;; Uncomment to run:
+;; (run-simple-agent)
+#+end_src
+
+* Testing Tool Schemas
+
+Let's examine how tools are exposed to LLMs:
+
+#+begin_src scheme
+;; Get JSON schema for our tools
+(define schemas (tools->json-schema registry))
+
+;; Display formatted schemas
+(for-each (lambda (schema)
+           (format #t "\nTool: ~a\n" (assoc-ref schema 'name))
+           (format #t "Description: ~a\n" (assoc-ref schema 'description))
+           (format #t "Schema: ~s\n" (assoc-ref schema 'input_schema)))
+         schemas)
+#+end_src
+
+* Creating a Weather Service Mock
+
+Let's build a more realistic weather tool:
+
+#+begin_src scheme
+(define weather-data
+  '(("San Francisco" . "18°C, Foggy")
+    ("New York" . "5°C, Clear")
+    ("London" . "12°C, Rainy")
+    ("Tokyo" . "22°C, Sunny")
+    ("Paris" . "15°C, Cloudy")))
+
+(define smart-weather-tool
+  (make-tool
+   "weather_service"
+   "Get weather for major cities"
+   '((type . "object")
+     (properties . ((city . ((type . "string")
+                            (description . "City name")))))
+     (required . #("city")))
+   (lambda (input)
+     (let* ((city (assoc-ref input 'city))
+            (weather (assoc-ref weather-data city)))
+       (if weather
+           (format #f "Weather in ~a: ~a" city weather)
+           (format #f "Weather data not available for ~a" city))))))
+
+;; Test the weather service
+(register-tool! registry smart-weather-tool)
+(format #t "~a\n" (execute-tool registry "weather_service" 
+                                '((city . "Tokyo"))))
+(format #t "~a\n" (execute-tool registry "weather_service" 
+                                '((city . "Boston"))))
+#+end_src
+
+* Advanced: Tool Composition
+
+We can compose tools for complex operations:
+
+#+begin_src scheme
+(define composite-tool
+  (make-tool
+   "travel_planner"
+   "Plan travel with weather and time info"
+   '((type . "object")
+     (properties . ((destination . ((type . "string")))))
+     (required . #("destination")))
+   (lambda (input)
+     (let* ((city (assoc-ref input 'destination))
+            (time-info (execute-tool registry "get_time" '()))
+            (weather-info (execute-tool registry "weather_service" 
+                                       `((city . ,city)))))
+       (format #f "Travel Plan:\nCurrent time: ~a\n~a\nHave a safe trip!"
+               time-info weather-info)))))
+
+(register-tool! registry composite-tool)
+(format #t "~a\n" (execute-tool registry "travel_planner"
+                                '((destination . "Paris"))))
+#+end_src
+
+* Debugging and Inspection
+
+Tools for debugging our agent:
+
+#+begin_src scheme
+;; Inspect registry contents
+(format #t "\n=== Registry Debug Info ===\n")
+(format #t "Total tools: ~a\n" (length (list-tools registry)))
+
+;; List all tool names
+(format #t "Tool names: ~a\n" 
+        (map tool-name (list-tools registry)))
+
+;; Test error handling
+(format #t "\nTesting error handling:\n")
+(format #t "Invalid tool: ~a\n" 
+        (execute-tool registry "nonexistent" '()))
+#+end_src
+
+* Conclusion
+
+Key takeaways from this live coding session:
+
+1. **Modular Design**: Each component (messages, tools, backends) is independent
+2. **Tool System**: Extensible through simple registration
+3. **Schema-Driven**: Tools describe themselves for LLM understanding
+4. **Multiple Backends**: Support for different LLM providers
+5. **Scheme Power**: Functional programming makes agent development elegant
+
+To continue exploring:
+- Run the full agent with =./guile-agent-v2=
+- Try different backends (mock, ollama, anthropic)
+- Create your own custom tools
+- Experiment with tool composition
+
+* Appendix: Quick Reference
+
+#+begin_src scheme :tangle no
+;; Quick reference card
+'((create-tool . "(make-tool name description schema function)")
+  (register . "(register-tool! registry tool)")
+  (execute . "(execute-tool registry name input-alist)")
+  (message . "(make-message role content)")
+  (text . "(make-text-content \"text\")")
+  (backend . "(make-mock-backend)")
+  (send . "(backend-send-message backend messages tools)"))
+#+end_src
